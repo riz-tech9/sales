@@ -7,7 +7,6 @@ import json
 
 # === CONFIG ===
 st.set_page_config(page_title="📈 Sales Forecasting Dashboard", layout="wide")
-
 CREDENTIALS_FILE = 'user_credentials.xlsx'
 INVOICE_FILE = "data/invoices.csv"
 SETTINGS_FILE = "settings.json"
@@ -299,6 +298,31 @@ if st.session_state.logged_in and st.session_state.role == "admin":
     st.download_button(label="📥 Download All Invoices", data=excel_bytes, file_name="all_invoices.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # === ALL INVOICES TABLE ===
-if st.session_state.logged_in:
-    st.markdown("### 📄 All Invoices")
-    st.dataframe(df.sort_values("datetime", ascending=False).reset_index(drop=True))
+if st.session_state.logged_in and st.session_state.role == "admin":
+    st.markdown("#### 🧾 All Invoices (Inline Editable - Admin Only)")
+
+    # Ensure datetime is string for editing
+    df['datetime'] = df['datetime'].astype(str)
+
+    # Show editable table
+    edited_df = st.data_editor(
+        df,
+        num_rows="dynamic",
+        use_container_width=True,
+        key="admin_invoice_editor"
+    )
+
+    if st.button("💾 Save Changes to Invoices"):
+        try:
+            # Convert back to proper types
+            edited_df['datetime'] = pd.to_datetime(edited_df['datetime'], errors='coerce')
+            edited_df['amount'] = pd.to_numeric(edited_df['amount'], errors='coerce')
+
+            # Save to CSV
+            edited_df.to_csv(INVOICE_FILE, index=False)
+            st.success("✅ Changes saved successfully.")
+            st.rerun()
+        except Exception as e:
+            st.error(f"❌ Failed to save changes: {e}")
+                
+
