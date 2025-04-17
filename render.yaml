@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: sales-dashboard
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "streamlit run sales_dashboards_1.2.3.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10
