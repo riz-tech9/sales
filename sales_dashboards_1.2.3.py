@@ -116,42 +116,6 @@ if not df['datetime'].isnull().all():
 else:
     df[['date','year','month','quarter']] = [None]*4
 
-# === REVENUE OVER TIME ===
-st.markdown("### 📊 Revenue Over Time & Monthly Breakdown")
-col1, col2 = st.columns(2)
-
-with col1:
-    # Only attempt chart if we have valid datetime & amount rows
-    chart_df = (
-        df
-        .dropna(subset=['datetime','amount'])
-        .groupby(df['datetime'].dt.to_period("M"))
-        .sum(numeric_only=True)
-        .reset_index()
-    )
-    if not chart_df.empty:
-        chart_df['MonthYear'] = chart_df['datetime'].astype(str)
-        line_chart = alt.Chart(chart_df).mark_line(point=True).encode(
-            x=alt.X("MonthYear:N", title="Month-Year"),
-            y=alt.Y("amount:Q", title="Revenue"),
-            tooltip=["MonthYear","amount"]
-        ).properties(height=400)
-        st.altair_chart(line_chart, use_container_width=True)
-    else:
-        st.warning("⚠️ No invoice data available to plot revenue over time.")
-
-with col2:
-    bar_df = df.dropna(subset=['month','amount']).groupby("month", as_index=False)['amount'].sum()
-    if not bar_df.empty:
-        bar_df['month'] = bar_df['month'].map(MONTHS_MAP)
-        bar_chart = alt.Chart(bar_df).mark_bar().encode(
-            x=alt.X('month:N', title='Month'),
-            y=alt.Y('amount:Q', title='Achieved'),
-            tooltip=['month','amount']
-        )
-        st.altair_chart(bar_chart, use_container_width=True)
-    else:
-        st.warning("⚠️ No invoice data available for monthly breakdown.")
 
 # === FILTERING ===
 st.sidebar.header("📅 Filter by Date")
@@ -236,8 +200,44 @@ with col2:
                     st.success("✅ Targets updated successfully.")
                     st.rerun()
 
+# === REVENUE OVER TIME ===
+st.markdown("### 📊 Revenue Over Time & Monthly Breakdown")
+col1, col2 = st.columns(2)
 
-# === ADD INVOICE ===
+with col1:
+    # Only attempt chart if we have valid datetime & amount rows
+    chart_df = (
+        df
+        .dropna(subset=['datetime','amount'])
+        .groupby(df['datetime'].dt.to_period("M"))
+        .sum(numeric_only=True)
+        .reset_index()
+    )
+    if not chart_df.empty:
+        chart_df['MonthYear'] = chart_df['datetime'].astype(str)
+        line_chart = alt.Chart(chart_df).mark_line(point=True).encode(
+            x=alt.X("MonthYear:N", title="Month-Year"),
+            y=alt.Y("amount:Q", title="Revenue"),
+            tooltip=["MonthYear","amount"]
+        ).properties(height=400)
+        st.altair_chart(line_chart, use_container_width=True)
+    else:
+        st.warning("⚠️ No invoice data available to plot revenue over time.")
+
+with col2:
+    bar_df = df.dropna(subset=['month','amount']).groupby("month", as_index=False)['amount'].sum()
+    if not bar_df.empty:
+        bar_df['month'] = bar_df['month'].map(MONTHS_MAP)
+        bar_chart = alt.Chart(bar_df).mark_bar().encode(
+            x=alt.X('month:N', title='Month'),
+            y=alt.Y('amount:Q', title='Achieved'),
+            tooltip=['month','amount']
+        )
+        st.altair_chart(bar_chart, use_container_width=True)
+    else:
+        st.warning("⚠️ No invoice data available for monthly breakdown.")
+
+
 # === ADD INVOICE ===
 if st.session_state.logged_in and st.session_state.role in ["admin", "editor"]:
     st.markdown("### ➕ Add New Invoice")
