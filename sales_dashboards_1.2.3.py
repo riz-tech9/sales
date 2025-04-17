@@ -87,23 +87,34 @@ with st.sidebar:
             st.rerun()
 
 # === LOAD INVOICE DATA ===
+# === LOAD INVOICE DATA ===
 if os.path.exists(INVOICE_FILE):
     df = pd.read_csv(INVOICE_FILE)
-    df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
 else:
     df = pd.DataFrame(columns=['company', 'amount', 'datetime', 'entered_by'])
 
-df['date'] = df['datetime'].dt.date
-df['year'] = df['datetime'].dt.year
-df['month'] = df['datetime'].dt.month
+# ✅ Ensure 'datetime' is in datetime format before using .dt accessors
+df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
 
-def get_fiscal_quarter(month):
-    if month in [4, 5, 6]: return 1
-    elif month in [7, 8, 9]: return 2
-    elif month in [10, 11, 12]: return 3
-    else: return 4
+# ✅ Only apply .dt accessors on valid datetime values
+if not df['datetime'].isnull().all():
+    df['date'] = df['datetime'].dt.date
+    df['year'] = df['datetime'].dt.year
+    df['month'] = df['datetime'].dt.month
 
-df['quarter'] = df['datetime'].dt.month.apply(get_fiscal_quarter)
+    def get_fiscal_quarter(month):
+        if month in [4, 5, 6]: return 1
+        elif month in [7, 8, 9]: return 2
+        elif month in [10, 11, 12]: return 3
+        else: return 4
+
+    df['quarter'] = df['datetime'].dt.month.apply(get_fiscal_quarter)
+else:
+    df['date'] = pd.NaT
+    df['year'] = None
+    df['month'] = None
+    df['quarter'] = None
+
 
 # === FILTERING ===
 st.sidebar.header("📅 Filter by Date")
