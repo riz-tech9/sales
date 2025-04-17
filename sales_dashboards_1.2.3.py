@@ -8,6 +8,8 @@ import json
 # === CONFIG ===
 st.set_page_config(page_title="📈 Sales Forecasting Dashboard", layout="wide")
 
+CREDENTIALS_FILE = 'user_credentials.xlsx'
+
 # === FILE PATHS ===
 CREDENTIALS_FILE = "F:/user_credentials.xlsx"
 INVOICE_FILE = "data/invoices.csv"
