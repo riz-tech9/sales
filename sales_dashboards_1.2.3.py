@@ -238,6 +238,7 @@ with col2:
 
 
 # === ADD INVOICE ===
+# === ADD INVOICE ===
 if st.session_state.logged_in and st.session_state.role in ["admin", "editor"]:
     st.markdown("### ➕ Add New Invoice")
     with st.form("add_invoice_form"):
@@ -255,9 +256,16 @@ if st.session_state.logged_in and st.session_state.role in ["admin", "editor"]:
                 "entered_by": st.session_state.username
             }])
             df = pd.concat([df, new_row], ignore_index=True)
+
+            # Ensure the 'data' directory exists before saving
+            if not os.path.exists(os.path.dirname(INVOICE_FILE)):
+                os.makedirs(os.path.dirname(INVOICE_FILE))
+
+            # Save the invoice to CSV
             df.to_csv(INVOICE_FILE, index=False)
             st.success("✅ Invoice added successfully")
             st.rerun()
+
 
 # === ADMIN PANEL ===
 if st.session_state.logged_in and st.session_state.role == "admin":
