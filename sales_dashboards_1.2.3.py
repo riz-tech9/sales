@@ -86,35 +86,72 @@ with st.sidebar:
             st.session_state.role = ""
             st.rerun()
 
-# === LOAD INVOICE DATA ===
+
 # === LOAD INVOICE DATA ===
 if os.path.exists(INVOICE_FILE):
     df = pd.read_csv(INVOICE_FILE)
 else:
     df = pd.DataFrame(columns=['company', 'amount', 'datetime', 'entered_by'])
 
-# ✅ Ensure 'datetime' is in datetime format before using .dt accessors
+# ── SANITIZE COLUMNS ─────────────────────────────────────
+# Make sure amount is numeric, coerce invalid entries to NaN
+df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
+
+# Parse datetime and coerce invalid entries to NaT
 df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
 
-# ✅ Only apply .dt accessors on valid datetime values
+# Only build date/year/month/quarter if any datetimes parsed
 if not df['datetime'].isnull().all():
-    df['date'] = df['datetime'].dt.date
-    df['year'] = df['datetime'].dt.year
-    df['month'] = df['datetime'].dt.month
+    df['date']   = df['datetime'].dt.date
+    df['year']   = df['datetime'].dt.year
+    df['month']  = df['datetime'].dt.month
 
     def get_fiscal_quarter(month):
-        if month in [4, 5, 6]: return 1
+        if month in [4, 5, 6]:   return 1
         elif month in [7, 8, 9]: return 2
-        elif month in [10, 11, 12]: return 3
-        else: return 4
+        elif month in [10,11,12]:return 3
+        else:                    return 4
 
-    df['quarter'] = df['datetime'].dt.month.apply(get_fiscal_quarter)
+    df['quarter'] = df['month'].apply(get_fiscal_quarter)
 else:
-    df['date'] = pd.NaT
-    df['year'] = None
-    df['month'] = None
-    df['quarter'] = None
+    df[['date','year','month','quarter']] = [None]*4
 
+# === REVENUE OVER TIME ===
+st.markdown("### 📊 Revenue Over Time & Monthly Breakdown")
+col1, col2 = st.columns(2)
+
+with col1:
+    # Only attempt chart if we have valid datetime & amount rows
+    chart_df = (
+        df
+        .dropna(subset=['datetime','amount'])
+        .groupby(df['datetime'].dt.to_period("M"))
+        .sum(numeric_only=True)
+        .reset_index()
+    )
+    if not chart_df.empty:
+        chart_df['MonthYear'] = chart_df['datetime'].astype(str)
+        line_chart = alt.Chart(chart_df).mark_line(point=True).encode(
+            x=alt.X("MonthYear:N", title="Month-Year"),
+            y=alt.Y("amount:Q", title="Revenue"),
+            tooltip=["MonthYear","amount"]
+        ).properties(height=400)
+        st.altair_chart(line_chart, use_container_width=True)
+    else:
+        st.warning("⚠️ No invoice data available to plot revenue over time.")
+
+with col2:
+    bar_df = df.dropna(subset=['month','amount']).groupby("month", as_index=False)['amount'].sum()
+    if not bar_df.empty:
+        bar_df['month'] = bar_df['month'].map(MONTHS_MAP)
+        bar_chart = alt.Chart(bar_df).mark_bar().encode(
+            x=alt.X('month:N', title='Month'),
+            y=alt.Y('amount:Q', title='Achieved'),
+            tooltip=['month','amount']
+        )
+        st.altair_chart(bar_chart, use_container_width=True)
+    else:
+        st.warning("⚠️ No invoice data available for monthly breakdown.")
 
 # === FILTERING ===
 st.sidebar.header("📅 Filter by Date")
@@ -199,30 +236,6 @@ with col2:
                     st.success("✅ Targets updated successfully.")
                     st.rerun()
 
-# === REVENUE OVER TIME ===
-st.markdown("### 📊 Revenue Over Time & Monthly Breakdown")
-col1, col2 = st.columns(2)
-
-with col1:
-    line_data = df_filtered.groupby(df_filtered['datetime'].dt.to_period("M")).sum(numeric_only=True).reset_index()
-    line_data['MonthYear'] = line_data['datetime'].astype(str)
-    line_chart = alt.Chart(line_data).mark_line(point=True).encode(
-        x=alt.X("MonthYear:N", title="Month-Year"),
-        y=alt.Y("amount:Q", title="Revenue"),
-        tooltip=["MonthYear", "amount"]
-    ).properties(height=400)
-    st.altair_chart(line_chart, use_container_width=True)
-
-with col2:
-    bar_data = df_filtered.groupby("month", as_index=False)['amount'].sum()
-    bar_data['month'] = bar_data['month'].apply(lambda x: MONTHS_MAP.get(x, str(x)))
-    bar_chart = alt.Chart(bar_data).mark_bar().encode(
-        x=alt.X('month:N', title='Month'),
-        y=alt.Y('amount:Q', title='Achieved'),
-        color=alt.value("steelblue"),
-        tooltip=['month', 'amount']
-    )
-    st.altair_chart(bar_chart, use_container_width=True)
 
 # === ADD INVOICE ===
 if st.session_state.logged_in and st.session_state.role in ["admin", "editor"]:
